@@ -1,0 +1,239 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.625rem;
+    /* Light mode tokens */
+    --background: 0.96 0.005 252;
+    --foreground: 0.15 0.02 252;
+    --card: 1 0 0;
+    --card-foreground: 0.15 0.02 252;
+    --popover: 1 0 0;
+    --popover-foreground: 0.15 0.02 252;
+    --primary: 0.627 0.265 303.9;
+    --primary-foreground: 0.985 0 0;
+    --secondary: 0.94 0.01 252;
+    --secondary-foreground: 0.15 0.02 252;
+    --muted: 0.94 0.01 252;
+    --muted-foreground: 0.45 0.02 252;
+    --accent: 0.627 0.265 303.9;
+    --accent-foreground: 0.985 0 0;
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+    --border: 0.9 0.01 252;
+    --input: 0.9 0.01 252;
+    --ring: 0.627 0.265 303.9;
+    --chart-1: 0.627 0.265 303.9;
+    --chart-2: 0.696 0.17 162.48;
+    --chart-3: 0.769 0.188 70.08;
+    --chart-4: 0.628 0.265 303.9;
+    --chart-5: 0.645 0.246 16.439;
+    --sidebar: 0.97 0.005 252;
+    --sidebar-foreground: 0.15 0.02 252;
+    --sidebar-primary: 0.627 0.265 303.9;
+    --sidebar-primary-foreground: 0.985 0 0;
+    --sidebar-accent: 0.94 0.01 252;
+    --sidebar-accent-foreground: 0.15 0.02 252;
+    --sidebar-border: 0.9 0.01 252;
+    --sidebar-ring: 0.627 0.265 303.9;
+    /* Nova custom tokens - light */
+    --nova-bg: #f4f6fa;
+    --nova-panel: #ffffff;
+    --nova-sidebar: #f0f2f7;
+    --nova-border: #e2e5ec;
+    --nova-text: #1a1f2e;
+    --nova-muted: #6b7585;
+    --nova-purple: #8b3cf7;
+    --nova-purple-dim: #6d28d9;
+  }
+
+  .dark {
+    --background: 0.115 0.018 252;
+    --foreground: 0.92 0.01 252;
+    --card: 0.142 0.022 252;
+    --card-foreground: 0.92 0.01 252;
+    --popover: 0.16 0.025 252;
+    --popover-foreground: 0.92 0.01 252;
+    --primary: 0.627 0.265 303.9;
+    --primary-foreground: 0.985 0 0;
+    --secondary: 0.22 0.02 252;
+    --secondary-foreground: 0.92 0.01 252;
+    --muted: 0.185 0.02 252;
+    --muted-foreground: 0.67 0.018 252;
+    --accent: 0.627 0.265 303.9;
+    --accent-foreground: 0.985 0 0;
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+    --border: 0.22 0.02 252;
+    --input: 0.22 0.02 252;
+    --ring: 0.627 0.265 303.9;
+    --sidebar: 0.135 0.022 252;
+    --sidebar-foreground: 0.92 0.01 252;
+    --sidebar-primary: 0.627 0.265 303.9;
+    --sidebar-primary-foreground: 0.985 0 0;
+    --sidebar-accent: 0.22 0.02 252;
+    --sidebar-accent-foreground: 0.92 0.01 252;
+    --sidebar-border: 0.22 0.02 252;
+    --sidebar-ring: 0.627 0.265 303.9;
+    /* Nova custom tokens - dark */
+    --nova-bg: #0b0f16;
+    --nova-panel: #141a24;
+    --nova-sidebar: #121826;
+    --nova-border: #232a36;
+    --nova-text: #e7eaf0;
+    --nova-muted: #9aa4b2;
+    --nova-purple: #a855f7;
+    --nova-purple-dim: #7c3aed;
+  }
+
+  * {
+    @apply border-border;
+  }
+  html,
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Nova custom styles */
+.nova-sidebar {
+  background-color: var(--nova-sidebar);
+  border-right: 1px solid var(--nova-border);
+}
+.nova-panel {
+  background-color: var(--nova-panel);
+}
+.nova-bg {
+  background-color: var(--nova-bg);
+}
+.nova-border {
+  border-color: var(--nova-border);
+}
+
+.nova-nav-item {
+  color: var(--nova-muted);
+  transition: color 0.15s, background 0.15s;
+}
+.nova-nav-item:hover {
+  color: var(--nova-text);
+  background-color: rgba(168, 85, 247, 0.08);
+}
+.nova-nav-item.active {
+  color: var(--nova-text);
+  background: linear-gradient(
+    90deg,
+    rgba(168, 85, 247, 0.18) 0%,
+    rgba(168, 85, 247, 0.05) 100%
+  );
+  border-left: 2px solid var(--nova-purple);
+}
+
+.nova-glow {
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.3), 0 0 40px rgba(168, 85, 247, 0.1);
+}
+
+.nova-input {
+  background-color: var(--nova-bg);
+  border: 1px solid var(--nova-border);
+  color: var(--nova-text);
+}
+.nova-input:focus {
+  border-color: var(--nova-purple);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+}
+.nova-input::placeholder {
+  color: var(--nova-muted);
+}
+
+.nova-code-block {
+  background-color: var(--nova-bg);
+  border: 1px solid var(--nova-border);
+  border-radius: 8px;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.nova-btn-primary {
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  color: white;
+  border: none;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.nova-btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+.nova-btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+.nova-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.message-bubble-user {
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  color: white;
+  border-radius: 18px 18px 4px 18px;
+}
+.message-bubble-ai {
+  background-color: var(--nova-panel);
+  border: 1px solid var(--nova-border);
+  color: var(--nova-text);
+  border-radius: 18px 18px 18px 4px;
+}
+
+.scrollbar-nova::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-nova::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-nova::-webkit-scrollbar-thumb {
+  background: var(--nova-border);
+  border-radius: 2px;
+}
+.scrollbar-nova::-webkit-scrollbar-thumb:hover {
+  background: var(--nova-purple);
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.skeleton-nova {
+  background: linear-gradient(
+    90deg,
+    var(--nova-panel) 25%,
+    var(--nova-border) 50%,
+    var(--nova-panel) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
