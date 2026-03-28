@@ -11,7 +11,6 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { NoApiKeyBanner } from "./NoApiKeyBanner";
 
 interface Message {
   id: number;
@@ -30,7 +29,7 @@ const WELCOME_MSG: Message = {
 
 interface ChatTabProps {
   apiKey: string;
-  onOpenSettings: () => void;
+  geminiApiKey?: string;
   onSaveHistory?: (messages: Array<{ role: string; content: string }>) => void;
   initialMessages?: Array<{ role: "user" | "assistant"; content: string }>;
 }
@@ -50,7 +49,7 @@ function buildInitialMessages(
 
 export function ChatTab({
   apiKey,
-  onOpenSettings,
+  geminiApiKey,
   onSaveHistory,
   initialMessages,
 }: ChatTabProps) {
@@ -113,7 +112,6 @@ export function ChatTab({
     const content = input.trim();
     if ((!content && !attachment) || loading) return;
     if (!apiKey) {
-      onOpenSettings();
       return;
     }
 
@@ -136,49 +134,116 @@ export function ChatTab({
     setLoading(true);
 
     try {
-      const systemMessages: Array<{ role: string; content: string }> = [
-        {
+      const hasImage = !!(
+        currentAttachment?.isImage && currentAttachment.base64
+      );
+
+      let reply: string;
+
+      if (hasImage && currentAttachment?.base64 && geminiApiKey) {
+        // Use Gemini for image analysis
+        const mimeType =
+          currentAttachment.base64.split(";")[0].split(":")[1] || "image/jpeg";
+        const base64Data = currentAttachment.base64.split(",")[1];
+        const textPart = content || "Please analyze this image.";
+
+        const geminiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    { text: textPart },
+                    { inline_data: { mime_type: mimeType, data: base64Data } },
+                  ],
+                },
+              ],
+            }),
+          },
+        );
+
+        if (!geminiResponse.ok) {
+          const err = await geminiResponse.json();
+          const msg =
+            err.error?.message || `Gemini API error ${geminiResponse.status}`;
+          throw new Error(msg);
+        }
+
+        const geminiData = await geminiResponse.json();
+        reply = geminiData.candidates[0].content.parts[0].text;
+      } else {
+        // Use Groq for text-only (or image fallback if no gemini key)
+        const model = hasImage
+          ? "llama-3.2-11b-vision-preview"
+          : "llama-3.3-70b-versatile";
+
+        const systemMessage = {
           role: "system",
           content:
             "You are Suggestive AI, a helpful and friendly AI assistant.",
-        },
-      ];
+        };
 
-      if (currentAttachment?.isImage && currentAttachment.base64) {
-        systemMessages.push({
-          role: "system",
-          content: `The user has attached an image (${currentAttachment.name}). Base64 data: ${currentAttachment.base64.slice(0, 200)}... [image data truncated for text model]`,
-        });
-      }
-
-      const apiMessages = [
-        ...systemMessages,
-        ...newMessages
+        // Build history messages (exclude the new msg and welcome msg)
+        const historyMessages = newMessages
+          .slice(0, -1)
           .filter((m) => !(m.id === 0 && m.role === "assistant"))
-          .map(({ role, content: c }) => ({ role, content: c })),
-      ];
+          .map(({ role, content: c }) => ({ role, content: c }));
 
-      const response = await fetch(
-        "https://api.groq.com/openai/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+        type ContentPart =
+          | { type: "text"; text: string }
+          | { type: "image_url"; image_url: { url: string } };
+        type ApiMessage =
+          | { role: string; content: string }
+          | { role: string; content: ContentPart[] };
+
+        let lastUserMessage: ApiMessage;
+        if (hasImage && currentAttachment?.base64) {
+          const textPart = content || "Please analyze this image.";
+          lastUserMessage = {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: { url: currentAttachment.base64 },
+              },
+              { type: "text", text: textPart },
+            ],
+          };
+        } else {
+          lastUserMessage = { role: "user", content: userContent };
+        }
+
+        const apiMessages: ApiMessage[] = [
+          systemMessage,
+          ...historyMessages,
+          lastUserMessage,
+        ];
+
+        const response = await fetch(
+          "https://api.groq.com/openai/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({ model, messages: apiMessages }),
           },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: apiMessages,
-          }),
-        },
-      );
-      if (!response.ok) {
-        const err = await response.json();
-        const msg = err.error?.message || `API error ${response.status}`;
-        throw new Error(msg);
+        );
+
+        if (!response.ok) {
+          const err = await response.json();
+          const msg = err.error?.message || `API error ${response.status}`;
+          throw new Error(msg);
+        }
+
+        const data = await response.json();
+        reply = data.choices[0].message.content;
       }
-      const data = await response.json();
-      const reply = data.choices[0].message.content;
+
       const updatedMessages = [
         ...newMessages,
         { id: ++msgIdCounter, role: "assistant" as const, content: reply },
@@ -210,22 +275,22 @@ export function ChatTab({
   const saveEdit = async (msgId: number) => {
     const text = editingText.trim();
     if (!text) return;
-    // Find index, truncate messages after this point (remove that message and everything after)
     const idx = messages.findIndex((m) => m.id === msgId);
     if (idx === -1) return;
     const truncated = messages.slice(0, idx);
     setEditingId(null);
     setEditingText("");
     setInput(text);
-    // We need to send with truncated messages as base and the new text
-    // Use a short timeout so state updates settle
     setTimeout(async () => {
-      const content = text;
+      const editContent = text;
       if (!apiKey) {
-        onOpenSettings();
         return;
       }
-      const newMsg: Message = { id: ++msgIdCounter, role: "user", content };
+      const newMsg: Message = {
+        id: ++msgIdCounter,
+        role: "user",
+        content: editContent,
+      };
       const newMessages = [...truncated, newMsg];
       setMessages(newMessages);
       setInput("");
@@ -279,8 +344,6 @@ export function ChatTab({
       }
     }, 0);
   };
-
-  if (!apiKey) return <NoApiKeyBanner onOpenSettings={onOpenSettings} />;
 
   return (
     <div className="flex flex-col h-full">

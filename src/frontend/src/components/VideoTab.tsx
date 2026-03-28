@@ -2,7 +2,6 @@ import { Check, Clapperboard, Copy, Loader2, Video } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { NoApiKeyBanner } from "./NoApiKeyBanner";
 
 const STYLES = [
   "Documentary",
@@ -24,17 +23,14 @@ const SKELETON_WIDTHS = [
 
 interface VideoTabProps {
   apiKey: string;
-  onOpenSettings: () => void;
 }
 
-export function VideoTab({ apiKey, onOpenSettings }: VideoTabProps) {
+export function VideoTab({ apiKey }: VideoTabProps) {
   const [concept, setConcept] = useState("");
   const [style, setStyle] = useState("Short Film");
   const [loading, setLoading] = useState(false);
   const [script, setScript] = useState("");
   const [copied, setCopied] = useState(false);
-
-  if (!apiKey) return <NoApiKeyBanner onOpenSettings={onOpenSettings} />;
 
   const generate = async () => {
     if (!concept.trim() || loading) return;

@@ -2,7 +2,6 @@ import { BookOpen, GraduationCap, Loader2, Send } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { NoApiKeyBanner } from "./NoApiKeyBanner";
 
 const LEVELS = ["Beginner", "Intermediate", "Advanced"];
 const SKELETON_WIDTHS = [
@@ -25,7 +24,6 @@ let qaIdCounter = 0;
 
 interface TeacherTabProps {
   apiKey: string;
-  onOpenSettings: () => void;
 }
 
 async function groqText(
@@ -58,7 +56,7 @@ async function groqText(
   return data.choices[0].message.content.trim();
 }
 
-export function TeacherTab({ apiKey, onOpenSettings }: TeacherTabProps) {
+export function TeacherTab({ apiKey }: TeacherTabProps) {
   const [subject, setSubject] = useState("");
   const [level, setLevel] = useState("Beginner");
   const [loading, setLoading] = useState(false);
@@ -68,8 +66,6 @@ export function TeacherTab({ apiKey, onOpenSettings }: TeacherTabProps) {
   const [qaHistory, setQaHistory] = useState<QaItem[]>([]);
   const [currentSubject, setCurrentSubject] = useState("");
   const [currentLevel, setCurrentLevel] = useState("");
-
-  if (!apiKey) return <NoApiKeyBanner onOpenSettings={onOpenSettings} />;
 
   const startLesson = async () => {
     if (!subject.trim() || loading) return;

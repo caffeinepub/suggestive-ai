@@ -2,7 +2,6 @@ import { Check, Code2, Copy, Loader2, Terminal } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { NoApiKeyBanner } from "./NoApiKeyBanner";
 
 const LANGUAGES = [
   "JavaScript",
@@ -20,17 +19,14 @@ const SKELETON_PCTS = [65, 100, 88, 72, 95, 80, 60];
 
 interface CodeGenTabProps {
   apiKey: string;
-  onOpenSettings: () => void;
 }
 
-export function CodeGenTab({ apiKey, onOpenSettings }: CodeGenTabProps) {
+export function CodeGenTab({ apiKey }: CodeGenTabProps) {
   const [task, setTask] = useState("");
   const [language, setLanguage] = useState("TypeScript");
   const [loading, setLoading] = useState(false);
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState(false);
-
-  if (!apiKey) return <NoApiKeyBanner onOpenSettings={onOpenSettings} />;
 
   const generate = async () => {
     if (!task.trim() || loading) return;
