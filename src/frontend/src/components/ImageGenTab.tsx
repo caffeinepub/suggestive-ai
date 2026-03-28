@@ -6,80 +6,93 @@ function buildUrl(p: string, seed: number) {
   return `https://image.pollinations.ai/prompt/${encoded}?width=768&height=768&nologo=true&nofeed=true&seed=${seed}&model=flux`;
 }
 
-async function tryFetchImage(url: string): Promise<string> {
-  const res = await fetch(url, { mode: "cors" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const ct = res.headers.get("content-type") || "";
-  if (!ct.startsWith("image/")) throw new Error(`Not an image: ${ct}`);
-  const blob = await res.blob();
-  return URL.createObjectURL(blob);
+function loadImageNative(url: string, timeoutMs: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    const timer = setTimeout(() => {
+      img.src = "";
+      reject(new Error("timeout"));
+    }, timeoutMs);
+    img.onload = () => {
+      clearTimeout(timer);
+      resolve(url);
+    };
+    img.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error("load error"));
+    };
+    img.src = url;
+  });
 }
 
 export function ImageGenTab() {
   const [prompt, setPrompt] = useState("");
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attemptLabel, setAttemptLabel] = useState("");
   const promptRef = useRef(prompt);
   promptRef.current = prompt;
-  const abortRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef(false);
 
   const generateImage = useCallback(async () => {
     const p = promptRef.current.trim();
     if (!p) return;
 
-    // Cancel any previous attempt
-    if (abortRef.current) abortRef.current.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
+    cancelledRef.current = true; // cancel any running attempt
 
-    if (objectUrl) URL.revokeObjectURL(objectUrl);
-    setObjectUrl(null);
+    cancelledRef.current = false;
+    const isCancelled = () => cancelledRef.current;
+
+    setImageUrl(null);
     setError(null);
     setLoading(true);
     setAttemptLabel("");
 
     const maxAttempts = 5;
     for (let i = 0; i < maxAttempts; i++) {
-      if (ac.signal.aborted) return;
+      if (isCancelled()) return;
       if (i > 0) setAttemptLabel(`Retry ${i}/${maxAttempts - 1}...`);
       const seed = Math.floor(Math.random() * 999999);
       const url = buildUrl(p, seed);
       try {
-        const blobUrl = await Promise.race([
-          tryFetchImage(url),
-          new Promise<never>((_, rej) =>
-            setTimeout(() => rej(new Error("timeout")), 45000),
-          ),
-        ]);
-        if (ac.signal.aborted) {
-          URL.revokeObjectURL(blobUrl);
-          return;
-        }
-        setObjectUrl(blobUrl);
+        const loaded = await loadImageNative(url, 45000);
+        if (isCancelled()) return;
+        setImageUrl(loaded);
         setLoading(false);
         setAttemptLabel("");
         return;
       } catch {
-        // continue to next attempt
+        // continue
       }
     }
 
-    if (!ac.signal.aborted) {
+    if (!isCancelled()) {
       setLoading(false);
       setError(
         "Could not generate this image. Try a more detailed description.",
       );
     }
-  }, [objectUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const downloadImage = () => {
-    if (!objectUrl) return;
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = "generated-image.png";
-    a.click();
+  const downloadImage = async () => {
+    if (!imageUrl) return;
+    try {
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = "generated-image.png";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    } catch {
+      const a = document.createElement("a");
+      a.href = imageUrl;
+      a.download = "generated-image.png";
+      a.click();
+    }
   };
 
   return (
@@ -147,9 +160,9 @@ export function ImageGenTab() {
         </div>
 
         {/* Generated image */}
-        {objectUrl && !loading && (
+        {imageUrl && !loading && (
           <img
-            src={objectUrl}
+            src={imageUrl}
             alt={prompt}
             className="w-full object-cover rounded-2xl"
           />
@@ -191,14 +204,14 @@ export function ImageGenTab() {
                 {attemptLabel || "Generating your image..."}
               </p>
               <p className="text-xs" style={{ color: "#5A6478" }}>
-                This can take up to 30 seconds
+                This can take up to 45 seconds
               </p>
             </div>
           </div>
         )}
 
         {/* Download bar */}
-        {objectUrl && !loading && (
+        {imageUrl && !loading && (
           <div
             className="p-3 flex items-center justify-between rounded-b-2xl -mt-4"
             style={{
@@ -230,7 +243,7 @@ export function ImageGenTab() {
         )}
 
         {/* Empty state */}
-        {!objectUrl && !loading && !error && (
+        {!imageUrl && !loading && !error && (
           <div
             className="flex flex-col items-center justify-center py-12 gap-4 rounded-2xl"
             style={{ background: "#141A24", border: "1px dashed #232A36" }}
