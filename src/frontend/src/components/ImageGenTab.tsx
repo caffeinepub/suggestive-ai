@@ -5,13 +5,13 @@ const GEMINI_API_KEY = "AIzaSyASJx4uOZdmSyu7A9p37zn0zDONBJAhmSM";
 
 async function generateWithGemini(prompt: string): Promise<string> {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+        instances: [{ prompt }],
+        parameters: { sampleCount: 1 },
       }),
     },
   );
@@ -22,11 +22,10 @@ async function generateWithGemini(prompt: string): Promise<string> {
   }
 
   const data = await response.json();
-  const parts = data?.candidates?.[0]?.content?.parts ?? [];
-  for (const part of parts) {
-    if (part.inlineData?.mimeType?.startsWith("image/")) {
-      return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-    }
+  const prediction = data?.predictions?.[0];
+  if (prediction?.bytesBase64Encoded) {
+    const mime = prediction.mimeType || "image/png";
+    return `data:${mime};base64,${prediction.bytesBase64Encoded}`;
   }
   throw new Error("No image returned from API");
 }
