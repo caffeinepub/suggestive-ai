@@ -6,21 +6,20 @@ export function ImageGenTab() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
-  const generateImage = async () => {
+  const buildUrl = (seed: number) => {
+    const encoded = encodeURIComponent(prompt.trim());
+    return `https://image.pollinations.ai/prompt/${encoded}?width=768&height=768&nologo=true&seed=${seed}&enhance=true`;
+  };
+
+  const generateImage = () => {
     if (!prompt.trim()) return;
     setLoading(true);
     setError(null);
     setImageUrl(null);
-    try {
-      const encoded = encodeURIComponent(prompt.trim());
-      const url = `https://image.pollinations.ai/prompt/${encoded}?width=768&height=768&nologo=true&model=flux&seed=${Date.now()}`;
-      setImageUrl(url);
-    } catch {
-      setError("Failed to generate image. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    setRetryCount(0);
+    setImageUrl(buildUrl(Date.now()));
   };
 
   const handleImageLoad = () => {
@@ -28,9 +27,17 @@ export function ImageGenTab() {
   };
 
   const handleImageError = () => {
-    setLoading(false);
-    setImageUrl(null);
-    setError("Could not generate this image. Please try again.");
+    if (retryCount < 2) {
+      // Retry with a different seed before giving up
+      setRetryCount((c) => c + 1);
+      setImageUrl(buildUrl(Math.floor(Math.random() * 999999)));
+    } else {
+      setLoading(false);
+      setImageUrl(null);
+      setError(
+        "Could not generate this image. Try rephrasing your description.",
+      );
+    }
   };
 
   const downloadImage = () => {
@@ -141,11 +148,14 @@ export function ImageGenTab() {
           </div>
         )}
 
-        {/* Generated Image */}
+        {/* Generated Image (hidden while loading to avoid flash) */}
         {imageUrl && (
           <div
             className="rounded-2xl overflow-hidden"
-            style={{ border: "1px solid #232A36" }}
+            style={{
+              border: "1px solid #232A36",
+              display: loading ? "none" : "block",
+            }}
           >
             <img
               src={imageUrl}
@@ -154,35 +164,33 @@ export function ImageGenTab() {
               onLoad={handleImageLoad}
               onError={handleImageError}
             />
-            {!loading && (
-              <div
-                className="p-3 flex items-center justify-between"
-                style={{ background: "#141A24" }}
+            <div
+              className="p-3 flex items-center justify-between"
+              style={{ background: "#141A24" }}
+            >
+              <p
+                className="text-xs truncate flex-1 mr-3"
+                style={{ color: "#9AA4B2" }}
               >
-                <p
-                  className="text-xs truncate flex-1 mr-3"
-                  style={{ color: "#9AA4B2" }}
-                >
-                  {prompt}
-                </p>
-                <button
-                  type="button"
-                  onClick={downloadImage}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all"
-                  style={{
-                    background: "rgba(168,85,247,0.1)",
-                    border: "1px solid rgba(168,85,247,0.2)",
-                    color: "#A855F7",
-                  }}
-                >
-                  <Download size={12} /> Save
-                </button>
-              </div>
-            )}
+                {prompt}
+              </p>
+              <button
+                type="button"
+                onClick={downloadImage}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all"
+                style={{
+                  background: "rgba(168,85,247,0.1)",
+                  border: "1px solid rgba(168,85,247,0.2)",
+                  color: "#A855F7",
+                }}
+              >
+                <Download size={12} /> Save
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Empty state when no image yet */}
+        {/* Empty state */}
         {!imageUrl && !loading && !error && (
           <div
             className="flex flex-col items-center justify-center py-12 gap-4 rounded-2xl"
