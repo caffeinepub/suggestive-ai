@@ -6,38 +6,43 @@ export function ImageGenTab() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
 
   const buildUrl = (seed: number) => {
     const encoded = encodeURIComponent(prompt.trim());
-    return `https://image.pollinations.ai/prompt/${encoded}?width=768&height=768&nologo=true&seed=${seed}&enhance=true`;
+    return `https://image.pollinations.ai/prompt/${encoded}?width=768&height=768&nologo=true&seed=${seed}&enhance=true&model=turbo`;
   };
 
-  const generateImage = () => {
+  const generateImage = async () => {
     if (!prompt.trim()) return;
     setLoading(true);
     setError(null);
+    if (imageUrl?.startsWith("blob:")) URL.revokeObjectURL(imageUrl);
     setImageUrl(null);
-    setRetryCount(0);
-    setImageUrl(buildUrl(Date.now()));
-  };
 
-  const handleImageLoad = () => {
-    setLoading(false);
-  };
-
-  const handleImageError = () => {
-    if (retryCount < 2) {
-      // Retry with a different seed before giving up
-      setRetryCount((c) => c + 1);
-      setImageUrl(buildUrl(Math.floor(Math.random() * 999999)));
-    } else {
-      setLoading(false);
-      setImageUrl(null);
-      setError(
-        "Could not generate this image. Try rephrasing your description.",
-      );
+    let lastErr = "";
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const url = buildUrl(
+          attempt === 0 ? Date.now() : Math.floor(Math.random() * 999999),
+        );
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        if (!blob.type.startsWith("image/")) throw new Error("Not an image");
+        const objectUrl = URL.createObjectURL(blob);
+        setImageUrl(objectUrl);
+        setLoading(false);
+        return;
+      } catch (e) {
+        lastErr = String(e);
+        // small delay before retry
+        await new Promise((r) => setTimeout(r, 800));
+      }
     }
+
+    setLoading(false);
+    setError("Could not generate this image. Try a more detailed description.");
+    console.error("Image gen failed:", lastErr);
   };
 
   const downloadImage = () => {
@@ -45,7 +50,6 @@ export function ImageGenTab() {
     const a = document.createElement("a");
     a.href = imageUrl;
     a.download = `suggestive-ai-${Date.now()}.jpg`;
-    a.target = "_blank";
     a.click();
   };
 
@@ -148,22 +152,13 @@ export function ImageGenTab() {
           </div>
         )}
 
-        {/* Generated Image (hidden while loading to avoid flash) */}
-        {imageUrl && (
+        {/* Generated Image */}
+        {imageUrl && !loading && (
           <div
             className="rounded-2xl overflow-hidden"
-            style={{
-              border: "1px solid #232A36",
-              display: loading ? "none" : "block",
-            }}
+            style={{ border: "1px solid #232A36" }}
           >
-            <img
-              src={imageUrl}
-              alt={prompt}
-              className="w-full object-cover"
-              onLoad={handleImageLoad}
-              onError={handleImageError}
-            />
+            <img src={imageUrl} alt={prompt} className="w-full object-cover" />
             <div
               className="p-3 flex items-center justify-between"
               style={{ background: "#141A24" }}
