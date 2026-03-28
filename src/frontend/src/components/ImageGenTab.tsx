@@ -1,28 +1,34 @@
 import { Download, ImageIcon, Loader2, Wand2 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
-function buildUrl(p: string, seed: number) {
-  const encoded = encodeURIComponent(p.trim());
-  return `https://image.pollinations.ai/prompt/${encoded}?width=768&height=768&nologo=true&nofeed=true&seed=${seed}&model=flux`;
-}
+const GEMINI_API_KEY = "AIzaSyASJx4uOZdmSyu7A9p37zn0zDONBJAhmSM";
 
-function loadImageNative(url: string, timeoutMs: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image();
-    const timer = setTimeout(() => {
-      img.src = "";
-      reject(new Error("timeout"));
-    }, timeoutMs);
-    img.onload = () => {
-      clearTimeout(timer);
-      resolve(url);
-    };
-    img.onerror = () => {
-      clearTimeout(timer);
-      reject(new Error("load error"));
-    };
-    img.src = url;
-  });
+async function generateWithGemini(prompt: string): Promise<string> {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `API error ${response.status}`);
+  }
+
+  const data = await response.json();
+  const parts = data?.candidates?.[0]?.content?.parts ?? [];
+  for (const part of parts) {
+    if (part.inlineData?.mimeType?.startsWith("image/")) {
+      return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    }
+  }
+  throw new Error("No image returned from API");
 }
 
 export function ImageGenTab() {
@@ -30,7 +36,6 @@ export function ImageGenTab() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attemptLabel, setAttemptLabel] = useState("");
   const promptRef = useRef(prompt);
   promptRef.current = prompt;
   const cancelledRef = useRef(false);
@@ -39,60 +44,35 @@ export function ImageGenTab() {
     const p = promptRef.current.trim();
     if (!p) return;
 
-    cancelledRef.current = true; // cancel any running attempt
-
+    cancelledRef.current = true;
     cancelledRef.current = false;
     const isCancelled = () => cancelledRef.current;
 
     setImageUrl(null);
     setError(null);
     setLoading(true);
-    setAttemptLabel("");
 
-    const maxAttempts = 5;
-    for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const url = await generateWithGemini(p);
       if (isCancelled()) return;
-      if (i > 0) setAttemptLabel(`Retry ${i}/${maxAttempts - 1}...`);
-      const seed = Math.floor(Math.random() * 999999);
-      const url = buildUrl(p, seed);
-      try {
-        const loaded = await loadImageNative(url, 45000);
-        if (isCancelled()) return;
-        setImageUrl(loaded);
-        setLoading(false);
-        setAttemptLabel("");
-        return;
-      } catch {
-        // continue
+      setImageUrl(url);
+    } catch (e: unknown) {
+      if (!isCancelled()) {
+        const msg = e instanceof Error ? e.message : "Unknown error";
+        setError(`Could not generate image: ${msg}`);
       }
-    }
-
-    if (!isCancelled()) {
-      setLoading(false);
-      setError(
-        "Could not generate this image. Try a more detailed description.",
-      );
+    } finally {
+      if (!isCancelled()) setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const downloadImage = async () => {
+  const downloadImage = () => {
     if (!imageUrl) return;
-    try {
-      const res = await fetch(imageUrl);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = "generated-image.png";
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-    } catch {
-      const a = document.createElement("a");
-      a.href = imageUrl;
-      a.download = "generated-image.png";
-      a.click();
-    }
+    const a = document.createElement("a");
+    a.href = imageUrl;
+    a.download = "generated-image.png";
+    a.click();
   };
 
   return (
@@ -201,10 +181,10 @@ export function ImageGenTab() {
                 style={{ color: "#A855F7" }}
               />
               <p className="text-sm" style={{ color: "#9AA4B2" }}>
-                {attemptLabel || "Generating your image..."}
+                Generating your image...
               </p>
               <p className="text-xs" style={{ color: "#5A6478" }}>
-                This can take up to 45 seconds
+                Powered by Gemini AI
               </p>
             </div>
           </div>
